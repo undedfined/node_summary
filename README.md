@@ -63,10 +63,10 @@ La carpeta quedaría de la siguiente forma:
 Suponiendo que la terminal se encuentra donde la carpeta **node_server**, vamos a correr el siguiente comando para instalar las dependencias:
 
 ```bash
-$ npm install --save express mongoose
+$ npm install --save express
 ```
 
-Esto nos va a generar una carpeta llamada **node_modules** dentro de nuestro proyecto **node_server**, dentro de esta carpeta se guardan las dependencias **express** y **mongoose** que acabamos de descargar.
+Esto nos va a generar una carpeta llamada **node_modules** dentro de nuestro proyecto **node_server**, dentro de esta carpeta se guardan las dependencias que descargamos con cada `npm install`, en este caso express.
 
 Vamos ahora a abrir nuestro proyecto con el editor de código de nuestra preferencia y vamos a escribir lo siguiente:
 
@@ -160,10 +160,10 @@ Ahora vamos a representar esto en código con la entidad User:
 const express = require("express") // traemos la dependencia express
 const app = express() // iniciamos el objeto del servidor
 
-app.get("/user") // obtener todos o un solo usuario
-app.post("/user") // crear un nuevo usuario
-app.put("/user") // modificar a un usuario
-app.delete("/user") // eliminar un usuario
+app.get("/user", function(req, res) {}) // obtener todos o un solo usuario
+app.post("/user", function(req, res) {}) // crear un nuevo usuario
+app.put("/user", function(req, res) {}) // modificar a un usuario
+app.delete("/user", function(req, res) {}) // eliminar un usuario
 
 // cuando el servidor esté listo, ejecutamos una función
 app.listen(8080, function() {
@@ -388,4 +388,438 @@ MongoDB es una base de datos NoSQL, esto significa que no organiza su informaci�
 
 En el caso de Mongo la información se guarda en documentos, cada documento representa un objeto de javascript con los tipos de dato que se utilizarían en javascript.
 
-Para trabajar con Mongo vamos a configurar un cluster en cloud.mongodb.com como ya se ha hecho en las clases pasadas,
+Para trabajar con Mongo vamos a configurar un cluster en cloud.mongodb.com como ya se ha hecho en las clases pasadas, los pasos son los siguientes:
+
+**1.** Crear una cuenta en cloud.mongodb.com. (sí ya tienes una cuenta, no es necesario)
+
+**2.** Iniciar sesión.
+
+**3.** Asegurarnos de que tenemos un cluster registrado, generalmente el primer cluster tiene el nombre "Cluster0".
+
+3.1. En caso de NO tener un cluster en la cuenta, hacer click en el botón "Build a New Cluster".
+3.2. Posteriormente se nos muestra una pantalla con tres opciones, vamos a seleccionar la primera que lleva el título de "Starter Clusters" y es gratuita.
+3.3. La siguiente pantalla nos permite escoger entre tres proveedores donde vamos a almacenar nuestras bases de datos. Vamos a seleccionar la opción del medio "Google Cloud Platform" ya que lo vamos a estar utilizando en un futuro cuando hagamos el despliegue de nuestras aplicaciones.
+
+3.4. Ahora vamos a seleccionar el datacenter más cercano donde se montará nuestro Cluster. En este caso Iowa en los Estados Unidos.
+
+3.5. Finalmente le damos al botón inferior verde "Create Cluster".
+
+3.6. Esperar de 3 a 5 minutos mientras se aloja nuestro cluster.
+
+3.7. En la parte izquierda, en la sección de "Security" vamos a entrar en la opción "Database Access" y vamos a crear un nuevo usuario con los privilegios de lectura y escritura seleccionando el botón "+ Add New User". Es recomendable guardar en algún lugar el nombre de usuario y contraseña para poder utilizarlo en todos los ejercicios.
+3.8. En la parte izquierda, en la sección de "Security" vamos a entrar en la opción "Network Access" donde vamos a registrar las direcciones IP autorizadas para acceder en nuestro cluster. Seleccionamos el botón "+ Add IP Address" y seleccionamos la opción "allow access from anywhere", por último lo confirmamos. Esto nos va a permitir acceder a nuestro cluster desde cualquier lugar.
+**4.** En la parte izquierda, en la sección de "Atlas" entramos en la opción "Clusters" donde listamos los clusters disponibles.
+
+**5.** Para conectar con un cluster vamos al botón "connect" debajo del nombre y versión de nuestro cluster. Si realizamos correctamente la configuración anterior de "Database Access" y "Network Access" vamos a tener la opción "Connect your application", la seleccionamos y copiamos el "Connection String" que se nos muestra.
+
+Un cluster es un conjunto de ordenadores que se comportan como si fueran una sola computadora, el cluster de MongoDB nos permite crear, almacenar y acceder a múltiples bases de datos para nuestros proyectos gratuitamente.
+
+Necesitamos tres cosas para poder continuar:
+
+-   Un usuario registrado con permisos de lectura y escritura.
+-   Acceso a nuestro cluster desde cualquier dirección IP.
+-   El string de conexión, luce de la siguiente forma:
+    mongodb+srv://username:password@clustername-xxxxx.gcp.mongodb.net/db_name?retryWrites=true&w=majority
+
+Es string de conexión contiene lo siguiente:
+
+-   mongodb+srv (el protocólo para conectar con mongodb)
+-   username:password (las credenciales del usuario con permisos de lectura y escritura)
+-   clustername-xxxxx (la dirección del cluster)
+-   gcp.mongodb.net (el subdominio de google cloud server y el dominio de mongodb)
+-   /db_name (el nombre de la base de datos dentro de nuestro cluster, es necesario cambiar este nombre cada que querrámos trabajar con una nueva base de datos)
+-   ?retryWrites=true&w=majority (parametros de configuración para la conexión)
+
+## Mongoose
+
+Mongoose es una librería para Node JS que nos ayuda a conectar con una base de datos en MongoDB, adicionalmente nos da la funcionalidad necesaria para poder realizar acciones dentro de nuestra base de datos (crear, modificar, eliminar y consultar documentos).
+
+Usamos el servidor que creamos anteriormente, hasta antes de la parte de middlewares deberíamos tener un orden como este en la carpeta:
+
+```bash
+/node_server
+├── README.md
+├── node_modules
+├── package-lock.json
+├── package.json
+└── server.js
+```
+
+Para instalar mongoose necesitamos ejecutar el siguiente comando en nuestro proyecto de NPM:
+
+```bash
+$ npm install --save mongoose
+```
+
+Vamos a crear una carpeta `schemas` dentro de **node_server**, en esta carpeta vamos a definir como se van a comportar las entidades que vamos a guardar en nuestra base de datos de Mongo. Posteriormente vamos a crear un **index.js** dentro de la carpeta, este archivo va a agrupar todos los esquemas y a realizar la conexión, la estructura debería quedar de la siguiente forma:
+
+```bash
+/node_server
+├── README.md
+├── package-lock.json
+├── package.json
+├── schemas
+│   └── index.js
+└── server.js
+```
+
+Dentro de **/schemas/index.js** vamos a tener el siguiente código:
+
+```javascript
+// importamos la dependencia de mongoose
+const mongoose = require("mongoose")
+
+// realizamos la conexión
+mongoose.connect(
+    // string de conexión
+    "mongodb+srv://username:password@clustername-xxxxx.gcp.mongodb.net/db_name?retryWrites=true&w=majority", // <-- aquí va una coma porque son parámetros y los parámetros se dividen por comas >:ccc
+    // objeto de configuración, para que no salgan los warnings
+    {
+        useNewUrlParser: true,
+        useUnifiedTopology: true
+    }
+)
+
+// llamamos a la conexión con el identificador "db"
+const db = mongoose.connection
+
+// una vez que la base de datos esté conectada, imprimimos en la consola
+db.once("open", function() {
+    console.log("Base de datos abierta!")
+})
+```
+
+Ahora vamos a representar algunos esquemas, pero antes es necesario que entendamos porqué necesitamos esquemas cuando estamos trabajando con MongoDB.
+
+MongoDB es una base de datos NoSQL, significa que su información no la organiza por tablas, pero entonces ¿cómo la organiza? A diferencia de tablas donde sabes que cada registro contiene la información que cada una de sus columnas especifica, MongoDB organiza su información en colecciones de documentos donde cada documento puede ser diferente al otro. Esto resuelve muchos problemas de escabilidad pero también agrega cierta incertidumbre respecto a qué datos van a existir o estar disponibles en qué documentos.
+
+Los esquemas sirven para indicar cómo se guardan y se comportan los documentos, no se implementan desde la capa de Mongo sino desde Node JS.
+
+En resumen un esquema es solo un plano o mapa de cómo se guardan los documentos en sus respectivas colecciones.
+
+Siguiendo el ejemplo con las entidades de REST, vamos a generar un esquema para la entidad Usuario. Dentro de la carpeta `schemas` vamos a crear un nuevo archivo Usuario.js (en este caso el archivo representa una entidad por lo que la primera letra es mayúscula).
+
+**/schemas/Usuario.js**
+
+```javascript
+// traemos la dependencia de mongoose
+const mongoose = require("mongoose")
+
+// declaramos un nuevo UserSchema
+// mongoose.Schema es un constructor
+// como parametro recibe un objeto que especifica los tipos de dato
+// que va a tener cada atributo
+const UserSchema = new mongoose.Schema({
+    name: String,
+    age: Number,
+    developer: Boolean,
+    // otra forma de escribir los tipos de dato es por medio de otro objeto,
+    // esto nos sirve para especificar mas cosas sobre los tipos de dato,
+    // por ejemplo si desearamos que un tipo de dato fuera requerido
+    // tendríamos que hacer lo siguiente
+    job: { type: String, required: true }, // job es un string, y es requerido
+    age: { type: Number, min: 18 }, // age es un numero y su valor mínimo es 18
+    email: { type: String, maxlength: 40, required: true } // email es un string requerido y su longitud máxima es de 40 caracteres
+})
+
+// Una vez definido nuestro esquema es necesario conciliarlo o "ligarlo"
+// a una colección en la base de datos, para eso ocupamos la función model
+// del objeto mongoose
+
+// model() recibe dos parametros:
+// 1.- un string con el nombre de la colección
+// 2.- un esquema
+const User = mongoose.model("User", UserSchema)
+
+// Finalmente exportamos el objeto *User* que creamos con el la funcion model
+module.exports = User
+```
+
+**_Nota: Al momento de importar mongoose podemos de-estructurar el objeto para solo trabajar con el Schema y la función model, de la siguiente forma:_**
+
+```javascript
+const { Schema, model } = require("mongoose")
+```
+
+Por último en nuestro archivo **/schemas/index.js** vamos importar todos los esquemas en la carpeta y exportarlos en conjunto.
+
+**/schemas/index.js**
+
+```javascript
+// importamos el esquema Usuario que se encuentra al mismo nivel en la carpeta
+const User = require("./User.js")
+
+// exportamos un objeto
+module.exports = {
+    // ya que el atributo y el valor tienen el mismo nombre "User" podemos
+    // solo escribirlo una vez.
+    // { User } -->> { User:User }
+    User
+}
+```
+
+De esta forma cada que un archivo externo requiera de alguno de estos esquemas, ya no tendrá que referirse a ellos uno por uno, solo tendrá que hacer require del módulo `schemas`.
+
+```javascript
+const { User, Song, Etc } = require("./schemas")
+```
+
+Antes de pasar a la siguiente sección vamos a aprender de cómo utilizar estas entidades que retorna el `mongoose.model()` después de declarar un esquema, para el ejemplo vamos a trabajar con User.
+
+Supongamos que se crea un archivo **/test.js** inmediatamente en la carpeta **node_server** y nuestro directorio queda de la siguiente forma:
+
+```bash
+/node_server
+├── README.md
+├── package-lock.json
+├── package.json
+├── schemas
+│   ├── User.js
+│   └── index.js
+├── server.js
+└── test.js
+```
+
+**_test.js es solo un archivo de prueba y únicamente va a servir para explicar el funcionamiento de los modelos de mongoose, no debe ser incluido y solo debe ser tomado como referencia para futuros ejemplos_**
+
+**/test.js**
+
+```javascript
+// para este ejemplo vamos a estar trabajando con async/await ya que nos permiten
+// un manejo mas entendible de las promesas en javascript
+
+// requerimos el modelo User de la carpeta *schemas*
+const { User } = require("./schemas")
+
+async function createNewUser() {
+    // los modelos por sí solos son constructores, esto significa que podemos
+    // invocarlos con la palabra *new* y crear a partir de ellos un objeto
+
+    // de la misma forma, User() va a esperar un objeto con la información
+    // necesaria para crear un documento en la base de datos.
+
+    // entonces tenemos dos tipos de objetos, uno con la información plana y
+    // necesaria para la creación del documento,
+    // y otro objeto (el que retorna el constructor) que va a representar
+    // directamente al documento en la base de datos
+
+    const data = {
+        // obj con info necesaria
+        name: "OwO",
+        surname: "UwU",
+        age: 123
+    }
+
+    const user = new User(data) // obj documento
+
+    // el identificador user ahora es una representación del documento
+    // que va a guardarse en la base de datos
+
+    // sin embargo todavía no existe en la base de datos,
+    // hace falta guardarlo, para eso utilizamos el método .save()
+    // y como devuelve una promesa, esperamos su resolución con await
+    await user.save()
+
+    console.log("saved user!", user) // usuario guardado!
+}
+
+async function getUsers() {
+    // a pesar de que *User* es un constructor, también tiene métodos estaticos
+    // que podemos utilizar para realizar operaciones en MongoDB, uno de estos
+    // métodos es el de .find()
+
+    // .find() nos va a retornar una promesa, y en su resolución van a llegar todos
+    // los documentos en la colección *users* que cumplan ciertas condiciones,
+    // en este caso cuando .find() no recibe ningún objeto en su parámetro
+    // va a retornar todos los documentos de la colección dentro de un arreglo
+
+    const users = await User.find()
+    console.log("todos los usuarios!", users)
+
+    // si deseáramos obtener todos los usuarios que cumplan cierta condición
+    // tendríamos que pasar un objeto dentro de .find() que especifique
+    // la condición
+
+    // por ejemplo supongamos que quiero obtener a todos los usuarios que son
+    // desarrolladores
+
+    const developers = await User.find({ developer: true })
+    console.log("todos los desarrolladores!", developers)
+
+    // para describir mas a profundidad mis consultas vamos a necesitar un objeto
+    // que indique exactamente qué es lo que buscamos para qué campo en mi esquema
+
+    // por ejemplo supongamos que quiero obtener a todos los usuarios mayores
+    // a 22 años
+
+    const elders = await User.find({ age: { $gt: 22 } })
+    console.log("usuarios mayores de 22!", elders)
+
+    // finalmente, si no queremos una lista mas bien un usuario individual
+    // podemos usar .findOne()
+
+    // .findOne() también puede recibir un objeto para especificar más la búsqueda
+    // y va a retornar al primer documento que encuentre que cumpla
+    // la condición
+
+    const someUser = await User.findOne({ email: "uwu@uwu.com" })
+    console.log("usuario con el correo uwu@uwu.com", someUser) // { _id:"123", name: "uwu", email: "uwu@uwu.com" }
+
+    // en caso de que un documento en .findOne() no haya sido encontrado
+    // su valor va a retornar null
+
+    const otherUser = await User.findOne({ email: "noexiste@uwu.com" })
+    console.log("usuario con el correo noexiste@uwu.com", otherUser) // null
+
+    // en cambio, cuando ningún documento es encontrado en un .find()
+    // solo se retorna un arreglo vacío
+
+    const nonDevs = await User.find({ developer: false })
+    console.log("usuarios no desarrolladores", nonDevs) // [] arreglo vacío, porque todos somos desarrolladores!
+}
+```
+
+## Integrando
+
+Con lo que hemos aprendido basta para desarrollar un CRUD simple. CRUD significa (Create, Read, Update, Delete) y se refiere al desarrollo de estas acciones para una entidad singular. Por ejemplo cuando decimos que vamos a crear un CRUD de User significa que vamos a representar la funcionalidad suficiente para crear, consultar, modificar y eliminar nuestros documentos en la colección de usuarios.
+
+Nuestro archivo **/schemas/User.js** quedaría de la siguiente forma:
+
+```javascript
+const { Schema, model } = require("mongoose")
+
+const UserSchema = new Schema({
+    name: String,
+    surname: String,
+    age: Number,
+    email: String,
+    password: String
+})
+
+const User = model("User", UserSchema)
+
+module.exports = User
+```
+
+El archivo **/schemas/index.js** quedaría prácticamente igual a la última vez:
+
+```javascript
+const mongoose = require("mongoose")
+
+mongoose.connect(
+    "mongodb+srv://username:password@clustername-xxxxx.gcp.mongodb.net/db_name?retryWrites=true&w=majority",
+    {
+        useNewUrlParser: true,
+        useUnifiedTopology: true
+    }
+)
+
+const db = mongoose.connection
+
+db.once("open", function() {
+    console.log("Base de datos abierta!")
+})
+
+// Aquí importamos los esquemas de las demás entidades
+const User = require("./User")
+
+// Aquí las exportamos
+module.exports = {
+    User
+}
+```
+
+Por último, el archivo **/server.js** quedaría de la siguiente forma:
+
+```javascript
+const express = require("express")
+const app = express()
+
+// importamos los esquemas
+// ya que tenemos un index.js dentro de la carpeta schemas
+// no es necesario escribirlo, basta solo con escribir el nombre
+// de la carpeta
+const { User } = require("./schemas")
+
+app.get("/user", function(req, res) {}) // consultar uno o muchos usuarios
+app.post("/user", function(req, res) {}) // crear nuevo usuario
+app.put("/user", function(req, res) {}) // modificar usuario
+app.delete("/user", function(req, res) {}) // eliminar un usuario
+
+app.listen(8080, function() {
+    console.log("Servidor escuchando :)")
+})
+```
+
+Vamos a empezar a trabajar en cada uno de los endpoints:
+
+-   _GET_ **/user**
+-   _POST_ **/user**
+-   _PUT_ **/user**
+-   _DELETE_ **/user**
+
+```javascript
+// empezamos con post
+// post('/user') va a escuchar cuando se haga una petición de tipo POST
+// a la URL /user
+
+// la función es lo que se va a ejecutar, aquí nos llega el objeto de
+// request y el de response
+app.post('/user', async function(req, res)
+	// vamos a tomar el cuerpo de la petición y a mostrarlo en la consola
+	// esto debería mostrarnos el objeto JSON que se envió
+	// desde un cliente para la creación de un usuario
+	console.log(req.body) // { name: "Uwu", surname: "Owo", age: 30, email: "correo", password: "1234" }
+
+	// creamos un nuevo documento User
+	const user = new User(req.body)
+
+	// y finalmente esperamos a que se guarde el usuario
+	await user.save()
+
+	// adicionalmente retornamos el objeto de usuario en formato JSON
+	res.json(user)
+})
+
+// con esto estaríamos terminando un registro simple de usuario, vamos ahora
+// a realizar una consulta
+
+app.get('/user', async function(req, res) {
+	// el cliente hace una petición para obtener a todos los usuarios
+	// primero los obtenemos y después los contestamos en formato JSON
+
+	const users = await User.find()
+	res.json(users)
+
+	// esa estuvo facil jajaja
+})
+
+// ¿Qué pasa si el cliente quisiera obtener un usuario específico dado un id?
+// express nos permite tomar ciertos parámetro por medio de la URL, de la
+// siguiente forma
+app.get('/user/:id', async function(req, res) {
+	// los dos puntos en la url indican que "id" es un valor variable
+	// que va a proporcionar el cliente cuando ejecute esta petición
+
+	// para encontrar UN SOLO usuario por medio de su identificador podríamos
+	// utilizar dos metodos, .findOne() y .findById(), vamos a probar con ambos
+
+	// primero necesitamos tomar el parámetro que se nos envió en la URL,
+	// se obtiene dentro del objeto de request, en otro objeto llamado params
+	// de la siguiente forma
+	console.log(req.params.id)
+
+	// req.params.id corresponde con el nombre del parametro después
+	// de los dos puntos en la URL /user/:id
+
+	// la primera forma .findOne()
+	const user = User.findOne({ _id: req.params.id })
+	console.log("buscar usuario donde _id === req.params.id", user)
+
+	// la segunda forma .findById()
+	const sameUser = User.findById(req.params.id)
+	console.log("usuario por su id!", sameUser)
+
+	res.json(user)
+})
+```
